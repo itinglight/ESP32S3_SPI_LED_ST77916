@@ -1,0 +1,2 @@
+source /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/gdbinit/symbols
+source /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/gdbinit/connect

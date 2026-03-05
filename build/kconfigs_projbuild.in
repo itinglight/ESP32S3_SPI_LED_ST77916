@@ -1,0 +1,7 @@
+source "/Users/itinglight/devSDK/esp-idf/components/bootloader/Kconfig.projbuild"
+source "/Users/itinglight/devSDK/esp-idf/components/esp_app_format/Kconfig.projbuild"
+source "/Users/itinglight/devSDK/esp-idf/components/esp_rom/Kconfig.projbuild"
+source "/Users/itinglight/devSDK/esp-idf/components/esptool_py/Kconfig.projbuild"
+source "/Users/itinglight/devSDK/esp-idf/components/partition_table/Kconfig.projbuild"
+source "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/main/Kconfig.projbuild"
+source "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/atanisoft__esp_lcd_touch_xpt2046/Kconfig.projbuild"
