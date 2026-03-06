@@ -4,4 +4,5 @@ dependencies:
   esp_lcd_gc9a01: ^1.0
   esp_lcd_touch_stmpe610: ^1.0
   atanisoft/esp_lcd_touch_xpt2046: 1.0.5
-  espressif/esp_lcd_st77916: '2.0.2'
+  espressif/esp_lcd_st77916: 2.0.2
+  espressif/esp_lcd_touch_cst816s: '*'

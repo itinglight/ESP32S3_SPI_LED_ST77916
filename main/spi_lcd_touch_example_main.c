@@ -34,6 +34,8 @@
 #include "esp_lcd_touch_stmpe610.h"
 #elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_XPT2046
 #include "esp_lcd_touch_xpt2046.h"
+#elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_CST816S
+#include "esp_lcd_touch_cst816s.h"
 #endif
 
 static const char *TAG = "example";
@@ -65,6 +67,12 @@ static const char *TAG = "example";
 #define EXAMPLE_LCD_BIT_PER_PIXEL       16 // RGB565 color format, 16 bits per pixel
 
 #define EXAMPLE_PIN_NUM_TOUCH_CS       11
+//11 12 13
+#define TOUCH_SDA           9 
+#define TOUCH_SCL           10
+#define TOUCH_RESET         11
+#define TOUCH_INT           12             
+
 
 // The pixel number in horizontal and vertical
 #if CONFIG_EXAMPLE_LCD_CONTROLLER_ILI9341
@@ -352,25 +360,55 @@ static void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uin
 }
 
 #if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
-static void example_lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data)
-{
-    uint16_t touchpad_x[1] = {0};
-    uint16_t touchpad_y[1] = {0};
-    uint8_t touchpad_cnt = 0;
+    #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_CST816S
+    static void example_lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data)
+    {
+        esp_lcd_touch_handle_t tp = lv_indev_get_user_data(indev);
 
-    esp_lcd_touch_handle_t touch_pad = lv_indev_get_user_data(indev);
-    esp_lcd_touch_read_data(touch_pad);
-    /* Get coordinates */
-    bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
-
-    if (touchpad_pressed && touchpad_cnt > 0) {
-        data->point.x = touchpad_x[0];
-        data->point.y = touchpad_y[0];
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-        data->state = LV_INDEV_STATE_RELEASED;
+        uint16_t x = 0, y = 0;
+        bool pressed = esp_lcd_touch_get_data(tp, &x, &y, NULL, NULL, 1);
+        printf("touch: %d,%d\n", points[0].x, points[0].y);
+        if (pressed) {
+            data->state = LV_INDEV_STATE_PRESSED;
+            data->point.x = x;
+            data->point.y = y;
+        } else {
+            data->state = LV_INDEV_STATE_RELEASED;
+        }
+  
     }
-}
+    static SemaphoreHandle_t touch_mux;
+
+    static void touch_callback(esp_lcd_touch_handle_t tp)
+    {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        xSemaphoreGiveFromISR(touch_mux, &xHigherPriorityTaskWoken);
+
+        if (xHigherPriorityTaskWoken) {
+            portYIELD_FROM_ISR();
+        }
+    }
+    #else
+    static void example_lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data)
+    {
+        uint16_t touchpad_x[1] = {0};
+        uint16_t touchpad_y[1] = {0};
+        uint8_t touchpad_cnt = 0;
+
+        esp_lcd_touch_handle_t touch_pad = lv_indev_get_user_data(indev);
+        esp_lcd_touch_read_data(touch_pad);
+        /* Get coordinates */
+        bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
+
+        if (touchpad_pressed && touchpad_cnt > 0) {
+            data->point.x = touchpad_x[0];
+            data->point.y = touchpad_y[0];
+            data->state = LV_INDEV_STATE_PRESSED;
+        } else {
+            data->state = LV_INDEV_STATE_RELEASED;
+        }
+    }
+    #endif
 #endif
 
 static void example_increase_lvgl_tick(void *arg)
@@ -515,36 +553,67 @@ void app_main(void)
     #elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_XPT2046
             ESP_LCD_TOUCH_IO_SPI_XPT2046_CONFIG(EXAMPLE_PIN_NUM_TOUCH_CS);
     #endif
-        // Attach the TOUCH to the SPI bus
-        ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &tp_io_config, &tp_io_handle));
 
-        esp_lcd_touch_config_t tp_cfg = {
-            .x_max = EXAMPLE_LCD_H_RES,
-            .y_max = EXAMPLE_LCD_V_RES,
-            .rst_gpio_num = -1,
-            .int_gpio_num = -1,
-            .flags = {
-                .swap_xy = 0,
-                .mirror_x = 0,
-                .mirror_y = CONFIG_EXAMPLE_LCD_MIRROR_Y,
-            },
-        };
-        esp_lcd_touch_handle_t tp = NULL;
+        #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_CST816S
+            touch_mux = xSemaphoreCreateBinary();
+            esp_lcd_panel_io_i2c_config_t io_config = ESP_LCD_TOUCH_IO_I2C_CST816S_CONFIG();
+            esp_lcd_touch_config_t tp_cfg = {
+                .x_max = EXAMPLE_LCD_H_RES,
+                .y_max = EXAMPLE_LCD_V_RES,
+                .rst_gpio_num = TOUCH_RESET,
+                .int_gpio_num = TOUCH_INT,
+                .levels = {
+                    .reset = 0,
+                    .interrupt = 0,
+                },
+                .flags = {
+                    .swap_xy = 0,
+                    .mirror_x = 0,
+                    .mirror_y = 0,
+                },
+                .interrupt_callback = touch_callback,
+            };
 
-    #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
-        ESP_LOGI(TAG, "Initialize touch controller STMPE610");
-        ESP_ERROR_CHECK(esp_lcd_touch_new_spi_stmpe610(tp_io_handle, &tp_cfg, &tp));
-    #elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_XPT2046
-        ESP_LOGI(TAG, "Initialize touch controller XPT2046");
-        ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
-    #endif
+            esp_lcd_touch_handle_t tp;
+            esp_lcd_touch_new_i2c_cst816s(io_handle, &tp_cfg, &tp);
+            static lv_indev_t *indev;
+            indev = lv_indev_create(); // Input device driver (Touch)
+            lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+            lv_indev_set_display(indev, display);
+            lv_indev_set_user_data(indev, tp);
+            lv_indev_set_read_cb(indev, example_lvgl_touch_cb);
+        #else
+        //     // Attach the TOUCH to the SPI bus
+        //     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &tp_io_config, &tp_io_handle));
 
-        static lv_indev_t *indev;
-        indev = lv_indev_create(); // Input device driver (Touch)
-        lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
-        lv_indev_set_display(indev, display);
-        lv_indev_set_user_data(indev, tp);
-        lv_indev_set_read_cb(indev, example_lvgl_touch_cb);
+        //     esp_lcd_touch_config_t tp_cfg = {
+        //         .x_max = EXAMPLE_LCD_H_RES,
+        //         .y_max = EXAMPLE_LCD_V_RES,
+        //         .rst_gpio_num = -1,
+        //         .int_gpio_num = -1,
+        //         .flags = {
+        //             .swap_xy = 0,
+        //             .mirror_x = 0,
+        //             .mirror_y = CONFIG_EXAMPLE_LCD_MIRROR_Y,
+        //         },
+        //     };
+        //     esp_lcd_touch_handle_t tp = NULL;
+
+        //     #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
+        //         ESP_LOGI(TAG, "Initialize touch controller STMPE610");
+        //         ESP_ERROR_CHECK(esp_lcd_touch_new_spi_stmpe610(tp_io_handle, &tp_cfg, &tp));
+        //     #elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_XPT2046
+        //         ESP_LOGI(TAG, "Initialize touch controller XPT2046");
+        //         ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
+        //     #endif
+
+        //     static lv_indev_t *indev;
+        //     indev = lv_indev_create(); // Input device driver (Touch)
+        //     lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+        //     lv_indev_set_display(indev, display);
+        //     lv_indev_set_user_data(indev, tp);
+        //     lv_indev_set_read_cb(indev, example_lvgl_touch_cb);
+        #endif
     #endif
 
         ESP_LOGI(TAG, "Create LVGL task");
