@@ -53,14 +53,17 @@ static const char *TAG = "example";
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
 
-#define EXAMPLE_PIN_NUM_SCLK           18
-#define EXAMPLE_PIN_NUM_MOSI           19
-#define EXAMPLE_PIN_NUM_MISO           21
-#define EXAMPLE_PIN_NUM_LCD_DC         5
-#define EXAMPLE_PIN_NUM_LCD_RST        3
-#define EXAMPLE_PIN_NUM_LCD_CS         4
-#define EXAMPLE_PIN_NUM_BK_LIGHT       2
-#define EXAMPLE_PIN_NUM_TOUCH_CS       15
+#define EXAMPLE_PIN_NUM_SCLK           4
+#define EXAMPLE_PIN_NUM_MOSI           5
+#define EXAMPLE_PIN_NUM_MISO           -1
+#define EXAMPLE_PIN_NUM_LCD_DC         7
+#define EXAMPLE_PIN_NUM_LCD_RST        6
+#define EXAMPLE_PIN_NUM_LCD_CS         15
+
+#define EXAMPLE_PIN_NUM_BK_LIGHT       16
+
+
+#define EXAMPLE_PIN_NUM_TOUCH_CS       11
 
 // The pixel number in horizontal and vertical
 #if CONFIG_EXAMPLE_LCD_CONTROLLER_ILI9341
@@ -88,4 +91,15 @@ static const char *TAG = "example";
 void app_main(void)
 {
     printf("Hello world!\n");
+    spi_bus_config_t buscfg = {
+    .sclk_io_num = EXAMPLE_PIN_NUM_SCLK,  // 连接 LCD SCK（SCL） 信号的 IO 编号
+    .mosi_io_num = EXAMPLE_PIN_NUM_MOSI,  // 连接 LCD MOSI（SDO、SDA） 信号的 IO 编号
+    .miso_io_num = EXAMPLE_PIN_NUM_MISO,  // 连接 LCD MISO（SDI） 信号的 IO 编号，如果不需要从 LCD 读取数据，可以设为 `-1`
+    .quadwp_io_num = -1,                  // 必须设置且为 `-1`
+    .quadhd_io_num = -1,                  // 必须设置且为 `-1`
+    .max_transfer_sz = EXAMPLE_LCD_H_RES * 80 * sizeof(uint16_t), // 表示 SPI 单次传输允许的最大字节数上限，通常设为全屏大小即可
+    };
+    ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
+                                            // 第 1 个参数表示使用的 SPI 主机 ID，和后续创建接口设备时保持一致
+                                            // 第 3 个参数表示使用的 DMA 通道号，默认设置为 `SPI_DMA_CH_AUTO` 即可
 }
