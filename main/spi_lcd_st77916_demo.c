@@ -88,6 +88,21 @@ static const char *TAG = "example";
 #define EXAMPLE_LVGL_TASK_STACK_SIZE   (4 * 1024)
 #define EXAMPLE_LVGL_TASK_PRIORITY     2
 
+static void lcd_fill_red(esp_lcd_panel_handle_t panel_handle,int color)
+{
+    static uint16_t red_buf[EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES];
+
+    // RGB565 红色 = 0xF800
+    for (int i = 0; i < EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES; i++) {
+        red_buf[i] = color;
+    }
+
+    esp_lcd_panel_draw_bitmap(panel_handle,
+                              0, 0,
+                              EXAMPLE_LCD_H_RES,
+                              EXAMPLE_LCD_V_RES,
+                              red_buf);
+}
 
 static bool example_on_color_trans_dome(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -291,110 +306,6 @@ static const st77916_lcd_init_cmd_t lcd_init_cmds[] = {
     {0x29, (uint8_t[]){0x00}, 1, 0}
 };
 
-
-// LVGL 相关的参数配置
-
-
-// LVGL library is not thread-safe, this example will call LVGL APIs from different tasks, so use a mutex to protect it
-static _lock_t lvgl_api_lock;
-
-extern void example_lvgl_demo_ui(lv_disp_t *disp);
-
-static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
-{
-    lv_display_t *disp = (lv_display_t *)user_ctx;
-    lv_display_flush_ready(disp);
-    return false;
-}
-
-/* Rotate display and touch, when rotated screen in LVGL. Called when driver parameters are updated. */
-static void example_lvgl_port_update_callback(lv_display_t *disp)
-{
-    esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
-    lv_display_rotation_t rotation = lv_display_get_rotation(disp);
-
-    switch (rotation) {
-    case LV_DISPLAY_ROTATION_0:
-        // Rotate LCD 
-        esp_lcd_panel_swap_xy(panel_handle, false);
-        esp_lcd_panel_mirror(panel_handle, true, false);
-        break;
-    case LV_DISPLAY_ROTATION_90:
-        // Rotate LCD display
-        esp_lcd_panel_swap_xy(panel_handle, true);
-        esp_lcd_panel_mirror(panel_handle, true, true);
-        break;
-    case LV_DISPLAY_ROTATION_180:
-        // Rotate LCD display
-        esp_lcd_panel_swap_xy(panel_handle, false);
-        esp_lcd_panel_mirror(panel_handle, false, true);
-        break;
-    case LV_DISPLAY_ROTATION_270:
-        // Rotate LCD display
-        esp_lcd_panel_swap_xy(panel_handle, true);
-        esp_lcd_panel_mirror(panel_handle, false, false);
-        break;
-    }
-}
-
-static void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
-{
-    example_lvgl_port_update_callback(disp);
-    esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
-    int offsetx1 = area->x1;
-    int offsetx2 = area->x2;
-    int offsety1 = area->y1;
-    int offsety2 = area->y2;
-    // because SPI LCD is big-endian, we need to swap the RGB bytes order
-    lv_draw_sw_rgb565_swap(px_map, (offsetx2 + 1 - offsetx1) * (offsety2 + 1 - offsety1)); //这里 lv_draw_sw_rgb565_swap 是 交换 R 与 B 通道，也就是把 RGB → BGR。
-    // copy a buffer's content to a specific area of the display
-    esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
-}
-
-#if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
-static void example_lvgl_touch_cb(lv_indev_t *indev, lv_indev_data_t *data)
-{
-    uint16_t touchpad_x[1] = {0};
-    uint16_t touchpad_y[1] = {0};
-    uint8_t touchpad_cnt = 0;
-
-    esp_lcd_touch_handle_t touch_pad = lv_indev_get_user_data(indev);
-    esp_lcd_touch_read_data(touch_pad);
-    /* Get coordinates */
-    bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
-
-    if (touchpad_pressed && touchpad_cnt > 0) {
-        data->point.x = touchpad_x[0];
-        data->point.y = touchpad_y[0];
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-        data->state = LV_INDEV_STATE_RELEASED;
-    }
-}
-#endif
-
-static void example_increase_lvgl_tick(void *arg)
-{
-    /* Tell LVGL how many milliseconds has elapsed */
-    lv_tick_inc(EXAMPLE_LVGL_TICK_PERIOD_MS);
-}
-
-static void example_lvgl_port_task(void *arg)
-{
-    ESP_LOGI(TAG, "Starting LVGL task");
-    uint32_t time_till_next_ms = 0;
-    while (1) {
-        _lock_acquire(&lvgl_api_lock);
-        time_till_next_ms = lv_timer_handler();
-        _lock_release(&lvgl_api_lock);
-        // in case of triggering a task watch dog time out
-        time_till_next_ms = MAX(time_till_next_ms, EXAMPLE_LVGL_TASK_MIN_DELAY_MS);
-        // in case of lvgl display not ready yet
-        time_till_next_ms = MIN(time_till_next_ms, EXAMPLE_LVGL_TASK_MAX_DELAY_MS);
-        usleep(1000 * time_till_next_ms);
-    }
-}
-
 void app_main(void)
 {
     printf("Hello world!\n");
@@ -446,7 +357,7 @@ void app_main(void)
 
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = EXAMPLE_PIN_NUM_LCD_RST,    // 连接 LCD 复位信号的 IO 编号，可以设为 `-1` 表示不使用
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,   // 像素色彩的元素顺序（RGB/BGR），
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,   // 像素色彩的元素顺序（RGB/BGR），
                                                     //  一般通过命令 `LCD_CMD_MADCTL（36h）` 控制
         .bits_per_pixel = EXAMPLE_LCD_BIT_PER_PIXEL,  // 色彩格式的位数（RGB565：16，RGB666：18），
                                                     // 一般通过命令 `LCD_CMD_COLMOD（3Ah）` 控制
@@ -457,104 +368,22 @@ void app_main(void)
     /* 初始化 LCD 设备 */
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle)); //若设备连接了复位引脚，则通过该引脚进行硬件复位，否则通过命令 LCD_CMD_SWRESET(01h) 进行软件复位。
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle)); //通过发送一系列的命令及参数来初始化 LCD 设备。
-    // ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));   // 这些函数可以根据需要使用
+    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));   // 这些函数可以根据需要使用
     // ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, true));
     // ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
     // ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 0)); //通过软件修改画图时的起始和终止坐标，从而实现画图的偏移。
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
-
-    //lcd_fill_red(panel_handle,0xF800); // RGB565 红色 = 0xF800
-
-
-    // 步骤四：创建 LVGL 任务
-     ESP_LOGI(TAG, "Initialize LVGL library");
-    lv_init();
-
-    // create a lvgl display
-    lv_display_t *display = lv_display_create(EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES);
-
-    // alloc draw buffers used by LVGL
-    // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
-    size_t draw_buffer_sz = EXAMPLE_LCD_H_RES * EXAMPLE_LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
-
-    void *buf1 = spi_bus_dma_memory_alloc(LCD_HOST, draw_buffer_sz, 0);
-    assert(buf1);
-    void *buf2 = spi_bus_dma_memory_alloc(LCD_HOST, draw_buffer_sz, 0);
-    assert(buf2);
-    // initialize LVGL draw buffers
-    lv_display_set_buffers(display, buf1, buf2, draw_buffer_sz, LV_DISPLAY_RENDER_MODE_PARTIAL);
-    // associate the mipi panel handle to the display
-    lv_display_set_user_data(display, panel_handle);
-    // set color depth
-    lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
-    // set the callback which can copy the rendered image to an area of the display
-    lv_display_set_flush_cb(display, example_lvgl_flush_cb);
-
-    ESP_LOGI(TAG, "Install LVGL tick timer");
-    // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
-    const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &example_increase_lvgl_tick,
-        .name = "lvgl_tick"
-    };
-    esp_timer_handle_t lvgl_tick_timer = NULL;
-    ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000));
-
-    ESP_LOGI(TAG, "Register io panel event callback for LVGL flush ready notification");
-    const esp_lcd_panel_io_callbacks_t cbs = {
-        .on_color_trans_done = example_notify_lvgl_flush_ready,
-    };
-    /* Register done callback */
-    ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display));
-
-    #if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED
-        esp_lcd_panel_io_handle_t tp_io_handle = NULL;
-        esp_lcd_panel_io_spi_config_t tp_io_config =
-    #ifdef CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
-            ESP_LCD_TOUCH_IO_SPI_STMPE610_CONFIG(EXAMPLE_PIN_NUM_TOUCH_CS);
-    #elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_XPT2046
-            ESP_LCD_TOUCH_IO_SPI_XPT2046_CONFIG(EXAMPLE_PIN_NUM_TOUCH_CS);
-    #endif
-        // Attach the TOUCH to the SPI bus
-        ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &tp_io_config, &tp_io_handle));
-
-        esp_lcd_touch_config_t tp_cfg = {
-            .x_max = EXAMPLE_LCD_H_RES,
-            .y_max = EXAMPLE_LCD_V_RES,
-            .rst_gpio_num = -1,
-            .int_gpio_num = -1,
-            .flags = {
-                .swap_xy = 0,
-                .mirror_x = 0,
-                .mirror_y = CONFIG_EXAMPLE_LCD_MIRROR_Y,
-            },
-        };
-        esp_lcd_touch_handle_t tp = NULL;
-
-    #if CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_STMPE610
-        ESP_LOGI(TAG, "Initialize touch controller STMPE610");
-        ESP_ERROR_CHECK(esp_lcd_touch_new_spi_stmpe610(tp_io_handle, &tp_cfg, &tp));
-    #elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_XPT2046
-        ESP_LOGI(TAG, "Initialize touch controller XPT2046");
-        ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
-    #endif
-
-        static lv_indev_t *indev;
-        indev = lv_indev_create(); // Input device driver (Touch)
-        lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
-        lv_indev_set_display(indev, display);
-        lv_indev_set_user_data(indev, tp);
-        lv_indev_set_read_cb(indev, example_lvgl_touch_cb);
-    #endif
-
-        ESP_LOGI(TAG, "Create LVGL task");
-        xTaskCreate(example_lvgl_port_task, "LVGL", EXAMPLE_LVGL_TASK_STACK_SIZE, NULL, EXAMPLE_LVGL_TASK_PRIORITY, NULL);
-
-        ESP_LOGI(TAG, "Display LVGL Meter Widget");
-        // Lock the mutex due to the LVGL APIs are not thread-safe
-        _lock_acquire(&lvgl_api_lock);
-        example_lvgl_demo_ui(display);
-        _lock_release(&lvgl_api_lock);
+    while (1)
+    {
+        /* code */
+          // 刷屏测试
+        lcd_fill_red(panel_handle,0xF800); // RGB565 红色 = 0xF800
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        lcd_fill_red(panel_handle,0x07E0); // RGB565 绿色 = 0x07E0
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        lcd_fill_red(panel_handle,0x001F); // RGB565 蓝色 = 0x001F
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
     
 }
 
