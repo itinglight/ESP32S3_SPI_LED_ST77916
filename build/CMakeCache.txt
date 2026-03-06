@@ -359,13 +359,10 @@ Mbed TLS_IS_TOP_LEVEL:STATIC=OFF
 Mbed TLS_SOURCE_DIR:STATIC=/Users/itinglight/devSDK/esp-idf/components/mbedtls/mbedtls
 
 //No help, variable specified on the command line.
-PYTHON:UNINITIALIZED=/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/bin/python3
+PYTHON:UNINITIALIZED=/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/bin/python
 
 //No help, variable specified on the command line.
 PYTHON_DEPS_CHECKED:UNINITIALIZED=1
-
-//No help, variable specified on the command line.
-SDKCONFIG:UNINITIALIZED=/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/sdkconfig
 
 //Allow unsafe builds. These builds ARE NOT SECURE.
 UNSAFE_BUILD:BOOL=OFF
@@ -611,7 +608,7 @@ C_COMPILER_SUPPORTS_WFORMAT_SIGNEDNESS:INTERNAL=1
 //Details about finding Git
 FIND_PACKAGE_MESSAGE_DETAILS_Git:INTERNAL=[/usr/bin/git][v2.50.1 (Apple Git-155)()]
 //Details about finding Python3
-FIND_PACKAGE_MESSAGE_DETAILS_Python3:INTERNAL=[/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/bin/python3][found components: Interpreter ][v3.9.6()]
+FIND_PACKAGE_MESSAGE_DETAILS_Python3:INTERNAL=[/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/bin/python][found components: Interpreter ][v3.9.6()]
 //Details about finding Threads
 FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 //ADVANCED property for variable: GIT_EXECUTABLE
@@ -622,10 +619,10 @@ _GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=/usr/local
 _Python3_Compiler_REASON_FAILURE:INTERNAL=
 //Development reason failure
 _Python3_Development_REASON_FAILURE:INTERNAL=
-_Python3_EXECUTABLE:INTERNAL=/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/bin/python3
+_Python3_EXECUTABLE:INTERNAL=/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/bin/python
 //Python3 Properties
 _Python3_INTERPRETER_PROPERTIES:INTERNAL=Python;3;9;6;32;64;;;abi3;/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9;/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9;/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/lib/python3.9/site-packages;/Users/itinglight/.espressif/python_env/idf5.5_py3.9_env/lib/python3.9/site-packages
-_Python3_INTERPRETER_SIGNATURE:INTERNAL=732cc9284ee3bbdb2336572630ab3f0a
+_Python3_INTERPRETER_SIGNATURE:INTERNAL=a3d5fe6b94468832d9805ebbd838093e
 //NumPy reason failure
 _Python3_NumPy_REASON_FAILURE:INTERNAL=
 

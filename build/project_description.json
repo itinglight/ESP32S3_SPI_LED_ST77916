@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "spi_lcd_touch",
-    "project_version":    "1d8ae27-dirty",
+    "project_version":    "f721787-dirty",
     "project_path":       "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test",
     "idf_path":           "/Users/itinglight/devSDK/esp-idf",
     "build_dir":          "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build",
