@@ -47,7 +47,7 @@ static const char *TAG = "example";
 #elif CONFIG_EXAMPLE_LCD_CONTROLLER_GC9A01
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  1
 #elif CONFIG_EXAMPLE_LCD_CONTROLLER_ST77916
-#define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  0
+#define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  0 
 #endif
 
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
@@ -60,8 +60,9 @@ static const char *TAG = "example";
 #define EXAMPLE_PIN_NUM_LCD_RST        6
 #define EXAMPLE_PIN_NUM_LCD_CS         15
 
-#define EXAMPLE_PIN_NUM_BK_LIGHT       16
-#define EXAMPLE_LCD_BIT_PER_PIXEL       16
+#define EXAMPLE_PIN_NUM_BK_LIGHT       16   //低电平背光亮，高电平背光灭
+
+#define EXAMPLE_LCD_BIT_PER_PIXEL       16 // RGB565 color format, 16 bits per pixel
 
 #define EXAMPLE_PIN_NUM_TOUCH_CS       11
 
@@ -87,6 +88,21 @@ static const char *TAG = "example";
 #define EXAMPLE_LVGL_TASK_STACK_SIZE   (4 * 1024)
 #define EXAMPLE_LVGL_TASK_PRIORITY     2
 
+static void lcd_fill_red(esp_lcd_panel_handle_t panel_handle)
+{
+    static uint16_t red_buf[EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES];
+
+    // RGB565 红色 = 0xF800
+    for (int i = 0; i < EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES; i++) {
+        red_buf[i] = 0xF800;
+    }
+
+    esp_lcd_panel_draw_bitmap(panel_handle,
+                              0, 0,
+                              EXAMPLE_LCD_H_RES,
+                              EXAMPLE_LCD_V_RES,
+                              red_buf);
+}
 
 static bool example_on_color_trans_dome(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -289,6 +305,7 @@ static const st77916_lcd_init_cmd_t lcd_init_cmds[] = {
     {0x11, (uint8_t[]){0x00}, 1, 120},
     {0x29, (uint8_t[]){0x00}, 1, 0}
 };
+
 void app_main(void)
 {
     printf("Hello world!\n");
@@ -328,6 +345,7 @@ void app_main(void)
 
     esp_lcd_panel_handle_t panel_handle = NULL;
     ESP_LOGI(TAG, "Install ST77916 panel driver");
+
     const st77916_vendor_config_t vendor_config = { // 用于替换驱动组件中的初始化命令及参数
         .init_cmds = lcd_init_cmds,         // Uncomment these line if use custom initialization commands
         .init_cmds_size = sizeof(lcd_init_cmds) / sizeof(st77916_lcd_init_cmd_t),
@@ -336,9 +354,10 @@ void app_main(void)
         },
     };
 
+
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = EXAMPLE_PIN_NUM_LCD_RST,    // 连接 LCD 复位信号的 IO 编号，可以设为 `-1` 表示不使用
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,   // 像素色彩的元素顺序（RGB/BGR），
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,   // 像素色彩的元素顺序（RGB/BGR），
                                                     //  一般通过命令 `LCD_CMD_MADCTL（36h）` 控制
         .bits_per_pixel = EXAMPLE_LCD_BIT_PER_PIXEL,  // 色彩格式的位数（RGB565：16，RGB666：18），
                                                     // 一般通过命令 `LCD_CMD_COLMOD（3Ah）` 控制
@@ -354,4 +373,8 @@ void app_main(void)
     // ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
     // ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 0)); //通过软件修改画图时的起始和终止坐标，从而实现画图的偏移。
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+    // 刷屏测试
+    lcd_fill_red(panel_handle);
 }
+
+
