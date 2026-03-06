@@ -357,7 +357,7 @@ void app_main(void)
 
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = EXAMPLE_PIN_NUM_LCD_RST,    // 连接 LCD 复位信号的 IO 编号，可以设为 `-1` 表示不使用
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,   // 像素色彩的元素顺序（RGB/BGR），
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,   // 像素色彩的元素顺序（RGB/BGR），
                                                     //  一般通过命令 `LCD_CMD_MADCTL（36h）` 控制
         .bits_per_pixel = EXAMPLE_LCD_BIT_PER_PIXEL,  // 色彩格式的位数（RGB565：16，RGB666：18），
                                                     // 一般通过命令 `LCD_CMD_COLMOD（3Ah）` 控制
