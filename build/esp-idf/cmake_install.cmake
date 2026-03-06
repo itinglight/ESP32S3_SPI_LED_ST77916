@@ -334,6 +334,11 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
+  include("/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
   include("/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_touch_stmpe610/cmake_install.cmake")
 endif()
 

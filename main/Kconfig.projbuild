@@ -8,7 +8,8 @@ menu "Example Configuration"
 
         config EXAMPLE_LCD_CONTROLLER_ILI9341
             bool "ILI9341"
-
+        config EXAMPLE_LCD_CONTROLLER_ST77916
+            bool "ST77916"
         config EXAMPLE_LCD_CONTROLLER_GC9A01
             bool "GC9A01"
     endchoice

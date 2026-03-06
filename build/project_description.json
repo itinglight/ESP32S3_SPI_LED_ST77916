@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "spi_lcd_touch",
-    "project_version":    "1",
+    "project_version":    "1d8ae27-dirty",
     "project_path":       "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test",
     "idf_path":           "/Users/itinglight/devSDK/esp-idf",
     "build_dir":          "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build",
@@ -25,8 +25,8 @@
         "COMPONENT_KCONFIGS_PROJBUILD" : "/Users/itinglight/devSDK/esp-idf/components/bootloader/Kconfig.projbuild;/Users/itinglight/devSDK/esp-idf/components/esp_app_format/Kconfig.projbuild;/Users/itinglight/devSDK/esp-idf/components/esp_rom/Kconfig.projbuild;/Users/itinglight/devSDK/esp-idf/components/esptool_py/Kconfig.projbuild;/Users/itinglight/devSDK/esp-idf/components/partition_table/Kconfig.projbuild;/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/main/Kconfig.projbuild;/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/atanisoft__esp_lcd_touch_xpt2046/Kconfig.projbuild"
     },
     "common_component_reqs": [ "cxx", "newlib", "freertos", "esp_hw_support", "heap", "log", "soc", "hal", "esp_rom", "esp_common", "esp_system", "xtensa" ],
-    "build_components" : [ "app_update", "atanisoft__esp_lcd_touch_xpt2046", "bootloader", "bootloader_support", "cxx", "driver", "efuse", "esp_app_format", "esp_bootloader_format", "esp_common", "esp_driver_ana_cmpr", "esp_driver_bitscrambler", "esp_driver_dac", "esp_driver_gpio", "esp_driver_gptimer", "esp_driver_i2c", "esp_driver_i2s", "esp_driver_ledc", "esp_driver_mcpwm", "esp_driver_parlio", "esp_driver_pcnt", "esp_driver_rmt", "esp_driver_sdio", "esp_driver_sdm", "esp_driver_sdmmc", "esp_driver_sdspi", "esp_driver_spi", "esp_driver_tsens", "esp_driver_twai", "esp_driver_uart", "esp_driver_usb_serial_jtag", "esp_hw_support", "esp_lcd", "esp_mm", "esp_partition", "esp_pm", "esp_psram", "esp_ringbuf", "esp_rom", "esp_security", "esp_system", "esp_timer", "espressif__cmake_utilities", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_touch", "espressif__esp_lcd_touch_stmpe610", "esptool_py", "freertos", "hal", "heap", "log", "lvgl__lvgl", "main", "mbedtls", "newlib", "partition_table", "pthread", "sdmmc", "soc", "spi_flash", "xtensa", "" ],
-    "build_component_paths" : [ "/Users/itinglight/devSDK/esp-idf/components/app_update", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/atanisoft__esp_lcd_touch_xpt2046", "/Users/itinglight/devSDK/esp-idf/components/bootloader", "/Users/itinglight/devSDK/esp-idf/components/bootloader_support", "/Users/itinglight/devSDK/esp-idf/components/cxx", "/Users/itinglight/devSDK/esp-idf/components/driver", "/Users/itinglight/devSDK/esp-idf/components/efuse", "/Users/itinglight/devSDK/esp-idf/components/esp_app_format", "/Users/itinglight/devSDK/esp-idf/components/esp_bootloader_format", "/Users/itinglight/devSDK/esp-idf/components/esp_common", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_ana_cmpr", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_bitscrambler", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_dac", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_gpio", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_gptimer", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_i2c", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_i2s", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_ledc", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_mcpwm", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_parlio", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_pcnt", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_rmt", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdio", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdm", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdmmc", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdspi", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_spi", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_tsens", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_twai", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_uart", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_usb_serial_jtag", "/Users/itinglight/devSDK/esp-idf/components/esp_hw_support", "/Users/itinglight/devSDK/esp-idf/components/esp_lcd", "/Users/itinglight/devSDK/esp-idf/components/esp_mm", "/Users/itinglight/devSDK/esp-idf/components/esp_partition", "/Users/itinglight/devSDK/esp-idf/components/esp_pm", "/Users/itinglight/devSDK/esp-idf/components/esp_psram", "/Users/itinglight/devSDK/esp-idf/components/esp_ringbuf", "/Users/itinglight/devSDK/esp-idf/components/esp_rom", "/Users/itinglight/devSDK/esp-idf/components/esp_security", "/Users/itinglight/devSDK/esp-idf/components/esp_system", "/Users/itinglight/devSDK/esp-idf/components/esp_timer", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__cmake_utilities", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_gc9a01", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_ili9341", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_touch", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_touch_stmpe610", "/Users/itinglight/devSDK/esp-idf/components/esptool_py", "/Users/itinglight/devSDK/esp-idf/components/freertos", "/Users/itinglight/devSDK/esp-idf/components/hal", "/Users/itinglight/devSDK/esp-idf/components/heap", "/Users/itinglight/devSDK/esp-idf/components/log", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/lvgl__lvgl", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/main", "/Users/itinglight/devSDK/esp-idf/components/mbedtls", "/Users/itinglight/devSDK/esp-idf/components/newlib", "/Users/itinglight/devSDK/esp-idf/components/partition_table", "/Users/itinglight/devSDK/esp-idf/components/pthread", "/Users/itinglight/devSDK/esp-idf/components/sdmmc", "/Users/itinglight/devSDK/esp-idf/components/soc", "/Users/itinglight/devSDK/esp-idf/components/spi_flash", "/Users/itinglight/devSDK/esp-idf/components/xtensa", "" ],
+    "build_components" : [ "app_update", "atanisoft__esp_lcd_touch_xpt2046", "bootloader", "bootloader_support", "cxx", "driver", "efuse", "esp_app_format", "esp_bootloader_format", "esp_common", "esp_driver_ana_cmpr", "esp_driver_bitscrambler", "esp_driver_dac", "esp_driver_gpio", "esp_driver_gptimer", "esp_driver_i2c", "esp_driver_i2s", "esp_driver_ledc", "esp_driver_mcpwm", "esp_driver_parlio", "esp_driver_pcnt", "esp_driver_rmt", "esp_driver_sdio", "esp_driver_sdm", "esp_driver_sdmmc", "esp_driver_sdspi", "esp_driver_spi", "esp_driver_tsens", "esp_driver_twai", "esp_driver_uart", "esp_driver_usb_serial_jtag", "esp_hw_support", "esp_lcd", "esp_mm", "esp_partition", "esp_pm", "esp_psram", "esp_ringbuf", "esp_rom", "esp_security", "esp_system", "esp_timer", "espressif__cmake_utilities", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_st77916", "espressif__esp_lcd_touch", "espressif__esp_lcd_touch_stmpe610", "esptool_py", "freertos", "hal", "heap", "log", "lvgl__lvgl", "main", "mbedtls", "newlib", "partition_table", "pthread", "sdmmc", "soc", "spi_flash", "xtensa", "" ],
+    "build_component_paths" : [ "/Users/itinglight/devSDK/esp-idf/components/app_update", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/atanisoft__esp_lcd_touch_xpt2046", "/Users/itinglight/devSDK/esp-idf/components/bootloader", "/Users/itinglight/devSDK/esp-idf/components/bootloader_support", "/Users/itinglight/devSDK/esp-idf/components/cxx", "/Users/itinglight/devSDK/esp-idf/components/driver", "/Users/itinglight/devSDK/esp-idf/components/efuse", "/Users/itinglight/devSDK/esp-idf/components/esp_app_format", "/Users/itinglight/devSDK/esp-idf/components/esp_bootloader_format", "/Users/itinglight/devSDK/esp-idf/components/esp_common", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_ana_cmpr", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_bitscrambler", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_dac", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_gpio", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_gptimer", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_i2c", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_i2s", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_ledc", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_mcpwm", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_parlio", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_pcnt", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_rmt", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdio", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdm", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdmmc", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_sdspi", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_spi", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_tsens", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_twai", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_uart", "/Users/itinglight/devSDK/esp-idf/components/esp_driver_usb_serial_jtag", "/Users/itinglight/devSDK/esp-idf/components/esp_hw_support", "/Users/itinglight/devSDK/esp-idf/components/esp_lcd", "/Users/itinglight/devSDK/esp-idf/components/esp_mm", "/Users/itinglight/devSDK/esp-idf/components/esp_partition", "/Users/itinglight/devSDK/esp-idf/components/esp_pm", "/Users/itinglight/devSDK/esp-idf/components/esp_psram", "/Users/itinglight/devSDK/esp-idf/components/esp_ringbuf", "/Users/itinglight/devSDK/esp-idf/components/esp_rom", "/Users/itinglight/devSDK/esp-idf/components/esp_security", "/Users/itinglight/devSDK/esp-idf/components/esp_system", "/Users/itinglight/devSDK/esp-idf/components/esp_timer", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__cmake_utilities", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_gc9a01", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_ili9341", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_st77916", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_touch", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_touch_stmpe610", "/Users/itinglight/devSDK/esp-idf/components/esptool_py", "/Users/itinglight/devSDK/esp-idf/components/freertos", "/Users/itinglight/devSDK/esp-idf/components/hal", "/Users/itinglight/devSDK/esp-idf/components/heap", "/Users/itinglight/devSDK/esp-idf/components/log", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/lvgl__lvgl", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/main", "/Users/itinglight/devSDK/esp-idf/components/mbedtls", "/Users/itinglight/devSDK/esp-idf/components/newlib", "/Users/itinglight/devSDK/esp-idf/components/partition_table", "/Users/itinglight/devSDK/esp-idf/components/pthread", "/Users/itinglight/devSDK/esp-idf/components/sdmmc", "/Users/itinglight/devSDK/esp-idf/components/soc", "/Users/itinglight/devSDK/esp-idf/components/spi_flash", "/Users/itinglight/devSDK/esp-idf/components/xtensa", "" ],
     "build_component_info" : {
         "app_update": {
             "alias": "idf::app_update",
@@ -703,6 +703,21 @@
             "sources": [ "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_ili9341/esp_lcd_ili9341.c" ],
             "include_dirs": [ "include" ]
         },
+        "espressif__esp_lcd_st77916": {
+            "alias": "idf::espressif__esp_lcd_st77916",
+            "target": "___idf_espressif__esp_lcd_st77916",
+            "prefix": "idf",
+            "dir": "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_st77916",
+            "type": "LIBRARY",
+            "lib": "__idf_espressif__esp_lcd_st77916",
+            "reqs": [ "esp_lcd", "driver" ],
+            "priv_reqs": [ "espressif__cmake_utilities" ],
+            "managed_reqs": [],
+            "managed_priv_reqs": [ "espressif__cmake_utilities" ],
+            "file": "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/libespressif__esp_lcd_st77916.a",
+            "sources": [ "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_st77916/esp_lcd_st77916.c", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_st77916/esp_lcd_st77916_spi.c", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_st77916/esp_lcd_st77916_mipi.c" ],
+            "include_dirs": [ "include" ]
+        },
         "espressif__esp_lcd_touch": {
             "alias": "idf::espressif__esp_lcd_touch",
             "target": "___idf_espressif__esp_lcd_touch",
@@ -831,9 +846,9 @@
             "type": "LIBRARY",
             "lib": "__idf_main",
             "reqs": [],
-            "priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
+            "priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_st77916", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
             "managed_reqs": [],
-            "managed_priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
+            "managed_priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_st77916", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
             "file": "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/main/libmain.a",
             "sources": [ "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/main/spi_lcd_touch_example_main.c", "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/main/lvgl_demo_ui.c" ],
             "include_dirs": [ "." ]
@@ -2263,9 +2278,9 @@
             "dir": "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/main",
             "lib": "__idf_main",
             "reqs": [],
-            "priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
+            "priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_st77916", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
             "managed_reqs": [],
-            "managed_priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
+            "managed_priv_reqs": [ "atanisoft__esp_lcd_touch_xpt2046", "espressif__esp_lcd_gc9a01", "espressif__esp_lcd_ili9341", "espressif__esp_lcd_st77916", "espressif__esp_lcd_touch_stmpe610", "lvgl__lvgl" ],
             "include_dirs": [ "." ]
         },
         "atanisoft__esp_lcd_touch_xpt2046": {
@@ -2311,6 +2326,18 @@
             "dir": "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_ili9341",
             "lib": "__idf_espressif__esp_lcd_ili9341",
             "reqs": [ "driver", "esp_lcd" ],
+            "priv_reqs": [ "espressif__cmake_utilities" ],
+            "managed_reqs": [],
+            "managed_priv_reqs": [ "espressif__cmake_utilities" ],
+            "include_dirs": [ "include" ]
+        },
+        "espressif__esp_lcd_st77916": {
+            "alias": "idf::espressif__esp_lcd_st77916",
+            "target": "___idf_espressif__esp_lcd_st77916",
+            "prefix": "idf",
+            "dir": "/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/managed_components/espressif__esp_lcd_st77916",
+            "lib": "__idf_espressif__esp_lcd_st77916",
+            "reqs": [ "esp_lcd", "driver" ],
             "priv_reqs": [ "espressif__cmake_utilities" ],
             "managed_reqs": [],
             "managed_priv_reqs": [ "espressif__cmake_utilities" ],

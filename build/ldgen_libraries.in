@@ -98,11 +98,13 @@ $<TARGET_FILE:idf::atanisoft__esp_lcd_touch_xpt2046>
 $<TARGET_FILE:__idf_espressif__esp_lcd_touch>
 $<TARGET_FILE:idf::espressif__esp_lcd_gc9a01>
 $<TARGET_FILE:idf::espressif__esp_lcd_ili9341>
+$<TARGET_FILE:idf::espressif__esp_lcd_st77916>
 $<TARGET_FILE:idf::espressif__esp_lcd_touch_stmpe610>
 $<TARGET_FILE:idf::lvgl__lvgl>
 $<TARGET_FILE:idf::main>
 $<TARGET_FILE:__idf_atanisoft__esp_lcd_touch_xpt2046>
 $<TARGET_FILE:__idf_espressif__esp_lcd_gc9a01>
 $<TARGET_FILE:__idf_espressif__esp_lcd_ili9341>
+$<TARGET_FILE:__idf_espressif__esp_lcd_st77916>
 $<TARGET_FILE:__idf_espressif__esp_lcd_touch_stmpe610>
 $<TARGET_FILE:__idf_lvgl__lvgl>

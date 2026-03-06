@@ -541,6 +541,13 @@
 /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_ili9341/CMakeFiles/install.dir
 /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_ili9341/CMakeFiles/install/local.dir
 /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_ili9341/CMakeFiles/install/strip.dir
+/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/CMakeFiles/__idf_espressif__esp_lcd_st77916.dir
+/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/CMakeFiles/edit_cache.dir
+/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/CMakeFiles/rebuild_cache.dir
+/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/CMakeFiles/list_install_components.dir
+/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/CMakeFiles/install.dir
+/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/CMakeFiles/install/local.dir
+/Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_st77916/CMakeFiles/install/strip.dir
 /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_touch_stmpe610/CMakeFiles/__idf_espressif__esp_lcd_touch_stmpe610.dir
 /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_touch_stmpe610/CMakeFiles/edit_cache.dir
 /Users/itinglight/Desktop/ESP32_Project/spi_lcd_test/build/esp-idf/espressif__esp_lcd_touch_stmpe610/CMakeFiles/rebuild_cache.dir

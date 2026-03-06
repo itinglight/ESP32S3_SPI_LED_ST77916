@@ -6829,6 +6829,16 @@
                         "children": [],
                         "depends_on": "<choice EXAMPLE_LCD_CONTROLLER>",
                         "help": null,
+                        "id": "EXAMPLE_LCD_CONTROLLER_ST77916",
+                        "name": "EXAMPLE_LCD_CONTROLLER_ST77916",
+                        "range": null,
+                        "title": "ST77916",
+                        "type": "bool"
+                    },
+                    {
+                        "children": [],
+                        "depends_on": "<choice EXAMPLE_LCD_CONTROLLER>",
+                        "help": null,
                         "id": "EXAMPLE_LCD_CONTROLLER_GC9A01",
                         "name": "EXAMPLE_LCD_CONTROLLER_GC9A01",
                         "range": null,
