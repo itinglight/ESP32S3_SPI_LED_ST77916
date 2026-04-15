@@ -10,12 +10,14 @@
 #include <sys/lock.h>
 #include <sys/param.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"
 #include "driver/gpio.h"
+#include "driver/i2c_master.h"
 #include "driver/spi_master.h"
 #include "driver/i2s_std.h"
 #include "esp_err.h"
@@ -37,6 +39,9 @@
 #include "esp_lcd_touch_stmpe610.h"
 #elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_XPT2046
 #include "esp_lcd_touch_xpt2046.h"
+#elif CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_CST816S
+#include "esp_lcd_touch.h"
+#include "esp_lcd_touch_cst816s.h"
 #endif
 
 static const char *TAG = "example";
@@ -56,6 +61,11 @@ static int audio_volume = 50;
 
 // 嘀嗒声控制
 static bool tick_tock_enabled = false;
+
+#if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED && CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_CST816S
+static esp_lcd_touch_handle_t touch_handle = NULL;
+static SemaphoreHandle_t touch_mux = NULL;
+#endif
 
 // Using SPI2 in the example
 #define LCD_HOST  SPI2_HOST
@@ -90,11 +100,15 @@ CS   = GPIO14
 SCL  = GPIO18
 
 
-TP_SCL    = GPIO31
-TP_SDA    = GPIO30
-TP_RESET  = GPIO29
-TP_INT    = GPIO28
+TP_SCL    = GPIO38
+TP_SDA    = GPIO37
+TP_RESET  = GPIO36
+TP_INT    = GPIO35
  */
+#define EXAMPLE_PIN_NUM_TOUCH_SCL      38
+#define EXAMPLE_PIN_NUM_TOUCH_SDA      37
+#define EXAMPLE_PIN_NUM_TOUCH_RST      36
+#define EXAMPLE_PIN_NUM_TOUCH_INT      35
 #define EXAMPLE_PIN_NUM_LCD_PCLK      18
 #define EXAMPLE_PIN_NUM_LCD_DATA0     46
 #define EXAMPLE_PIN_NUM_LCD_DATA1     13
@@ -104,6 +118,10 @@ TP_INT    = GPIO28
 #define EXAMPLE_PIN_NUM_LCD_RST        47
 #define EXAMPLE_PIN_NUM_BK_LIGHT_LEDA  42  // LEDA 背光引脚，需要高电平点亮
 #define EXAMPLE_PIN_NUM_BK_LIGHT_LEDK  20  // LEDK 背光引脚，需要低电平
+#define EXAMPLE_PIN_NUM_LCD_MODE_SEL0  9   // GPIO9，QSPI 模式选择脚，需要低电平
+#define EXAMPLE_PIN_NUM_LCD_MODE_SEL1  10  // GPIO10，QSPI 模式选择脚，需要高电平
+#define EXAMPLE_LCD_MODE_SEL0_LEVEL    0
+#define EXAMPLE_LCD_MODE_SEL1_LEVEL    1
 
 // MAX98357A 功放引脚定义（I2S TX）
 #define I2S_TX_DIN_PIN      7   // DIN - 数据输入
@@ -154,6 +172,9 @@ TP_INT    = GPIO28
 #define EXAMPLE_LVGL_TASK_STACK_SIZE   (4 * 1024)
 #define EXAMPLE_LVGL_TASK_PRIORITY     2
 
+#define EXAMPLE_TOUCH_I2C_NUM          0
+#define EXAMPLE_TOUCH_I2C_CLK_HZ       400000
+
 static void lcd_fill_red(esp_lcd_panel_handle_t panel_handle, int color)
 {
     // 使用分块绘制，避免大内存分配
@@ -184,6 +205,98 @@ static void lcd_fill_red(esp_lcd_panel_handle_t panel_handle, int color)
     
     heap_caps_free(line_buf);
 }
+
+    #if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED && CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_CST816S
+    static void example_touch_callback(esp_lcd_touch_handle_t tp)
+    {
+        BaseType_t task_woken = pdFALSE;
+
+        if (touch_mux != NULL) {
+            xSemaphoreGiveFromISR(touch_mux, &task_woken);
+        }
+
+        if (task_woken == pdTRUE) {
+            portYIELD_FROM_ISR();
+        }
+    }
+
+    static void example_touch_task(void *arg)
+    {
+        uint16_t last_x = UINT16_MAX;
+        uint16_t last_y = UINT16_MAX;
+
+        while (1) {
+            if (xSemaphoreTake(touch_mux, portMAX_DELAY) == pdTRUE) {
+                esp_lcd_touch_point_data_t points[1] = {0};
+                uint8_t touch_count = 0;
+
+                esp_err_t ret = esp_lcd_touch_read_data(touch_handle);
+                if (ret != ESP_OK) {
+                    ESP_LOGW(TAG, "Touch read failed: %s", esp_err_to_name(ret));
+                    continue;
+                }
+
+                ret = esp_lcd_touch_get_data(touch_handle, points, &touch_count, 1);
+                if (ret == ESP_OK && touch_count > 0) {
+                    if (points[0].x != last_x || points[0].y != last_y) {
+                        ESP_LOGI(TAG, "Touch: x=%u, y=%u", points[0].x, points[0].y);
+                        last_x = points[0].x;
+                        last_y = points[0].y;
+                    }
+                }
+            }
+        }
+    }
+
+    static void init_touch_cst816s(void)
+    {
+        i2c_master_bus_handle_t i2c_bus = NULL;
+        esp_lcd_panel_io_handle_t touch_io_handle = NULL;
+
+        ESP_LOGI(TAG, "Initialize CST816S touch over I2C");
+
+        touch_mux = xSemaphoreCreateBinary();
+        ESP_ERROR_CHECK(touch_mux != NULL ? ESP_OK : ESP_ERR_NO_MEM);
+
+        const i2c_master_bus_config_t i2c_config = {
+            .i2c_port = EXAMPLE_TOUCH_I2C_NUM,
+            .sda_io_num = EXAMPLE_PIN_NUM_TOUCH_SDA,
+            .scl_io_num = EXAMPLE_PIN_NUM_TOUCH_SCL,
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+        };
+        ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_config, &i2c_bus));
+
+        esp_lcd_panel_io_i2c_config_t touch_io_config = ESP_LCD_TOUCH_IO_I2C_CST816S_CONFIG();
+        touch_io_config.scl_speed_hz = EXAMPLE_TOUCH_I2C_CLK_HZ;
+        ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_bus, &touch_io_config, &touch_io_handle));
+
+        const esp_lcd_touch_config_t touch_config = {
+            .x_max = EXAMPLE_LCD_H_RES,
+            .y_max = EXAMPLE_LCD_V_RES,
+            .rst_gpio_num = EXAMPLE_PIN_NUM_TOUCH_RST,
+            .int_gpio_num = EXAMPLE_PIN_NUM_TOUCH_INT,
+            .levels = {
+                .reset = 0,
+                .interrupt = 0,
+            },
+            .flags = {
+                .swap_xy = 0,
+                .mirror_x = 0,
+                .mirror_y = 0,
+            },
+            .interrupt_callback = example_touch_callback,
+        };
+
+        ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_cst816s(touch_io_handle, &touch_config, &touch_handle));
+        ESP_LOGI(TAG, "CST816S touch initialized: SCL=GPIO%d SDA=GPIO%d RST=GPIO%d INT=GPIO%d",
+                 EXAMPLE_PIN_NUM_TOUCH_SCL,
+                 EXAMPLE_PIN_NUM_TOUCH_SDA,
+                 EXAMPLE_PIN_NUM_TOUCH_RST,
+                 EXAMPLE_PIN_NUM_TOUCH_INT);
+
+        xTaskCreate(example_touch_task, "touch_task", 4096, NULL, 5, NULL);
+    }
+    #endif
 
 // 初始化 I2S TX 用于 MAX98357A（播放）
 static void init_i2s_tx(void)
@@ -907,6 +1020,18 @@ static const st77916_lcd_init_cmd_t lcd_init_cmds[] = {
 void app_main(void)
 {
     printf("Hello world!\n");
+
+    ESP_LOGI(TAG, "Configure LCD QSPI mode GPIOs");
+    gpio_config_t lcd_mode_gpio_config = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = (1ULL << EXAMPLE_PIN_NUM_LCD_MODE_SEL0) | (1ULL << EXAMPLE_PIN_NUM_LCD_MODE_SEL1)
+    };
+    ESP_ERROR_CHECK(gpio_config(&lcd_mode_gpio_config));
+    ESP_ERROR_CHECK(gpio_set_level(EXAMPLE_PIN_NUM_LCD_MODE_SEL0, EXAMPLE_LCD_MODE_SEL0_LEVEL));
+    ESP_ERROR_CHECK(gpio_set_level(EXAMPLE_PIN_NUM_LCD_MODE_SEL1, EXAMPLE_LCD_MODE_SEL1_LEVEL));
+    ESP_LOGI(TAG, "LCD QSPI mode set: GPIO%d=%d, GPIO%d=%d",
+             EXAMPLE_PIN_NUM_LCD_MODE_SEL0, EXAMPLE_LCD_MODE_SEL0_LEVEL,
+             EXAMPLE_PIN_NUM_LCD_MODE_SEL1, EXAMPLE_LCD_MODE_SEL1_LEVEL);
     
     // 配置背光引脚
     ESP_LOGI(TAG, "Configure backlight GPIO");
@@ -1000,6 +1125,10 @@ void app_main(void)
     // ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
     // ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 0)); //通过软件修改画图时的起始和终止坐标，从而实现画图的偏移。
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+
+#if CONFIG_EXAMPLE_LCD_TOUCH_ENABLED && CONFIG_EXAMPLE_LCD_TOUCH_CONTROLLER_CST816S
+    init_touch_cst816s();
+#endif
     
     // 初始化屏幕为红色
     ESP_LOGI(TAG, "Filling screen with initial color (RED)");
