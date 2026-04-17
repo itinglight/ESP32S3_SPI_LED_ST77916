@@ -22,6 +22,14 @@
 #include "driver/i2s_std.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_chip_info.h"
+#include "esp_flash.h"
+#include "esp_system.h"
+#include "esp_heap_caps.h"
+#include "esp_psram.h"
+#include "spi_flash_mmap.h"
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
 #include "lvgl.h"
 #include <math.h>
 
@@ -55,6 +63,15 @@ static int16_t *record_buffer = NULL;
 static size_t recorded_samples = 0;
 static bool is_recording = false;
 static bool has_recording = false;
+
+// ZTS6672 兼容 ICS-43434：Philips 格式，24-bit 数据，32-bit 槽位
+// 24-bit 数据左对齐在 32-bit 槽内，高 24 位有效，低 8 位为 0
+static int16_t zts6672_raw_to_pcm16(int32_t raw_sample)
+{
+    // 取高 16 位（24-bit 左对齐数据的最高有效位）
+    int16_t pcm16 = (int16_t)(raw_sample >> 16);
+    return pcm16;
+}
 
 // 音量控制（0-100）
 static int audio_volume = 50;
@@ -128,15 +145,10 @@ TP_INT    = GPIO35
 #define I2S_TX_BCLK_PIN     15  // BCLK - 位时钟
 #define I2S_TX_LRCK_PIN     16  // LRCLK - 左右声道时钟
 
-// INMP441 麦克风引脚定义（I2S RX）
-// 请根据原理图实际连接修改这些引脚
+// ZTS6672 麦克风引脚定义（I2S RX）
 #define I2S_RX_SCK_PIN      5   // SCK (BCLK) - 时钟
 #define I2S_RX_SD_PIN       6   // SD (DATA) - 数据
 #define I2S_RX_WS_PIN       4   // WS (LRCK) - 字选择
-// 注意：INMP441 的 L/R 引脚必须连接！
-// - L/R 接 GND：数据在左声道（推荐）
-// - L/R 接 VCC：数据在右声道
-// - 如果 L/R 悬空，麦克风不会输出声音！
 
 // 按钮引脚定义
 #define BTN_WAKE_PIN        0   // 唤醒/录音按钮
@@ -145,9 +157,12 @@ TP_INT    = GPIO35
 
 // 音频参数
 #define I2S_SAMPLE_RATE     16000  // 采样率（录音用16kHz节省内存）
-#define I2S_SAMPLE_BITS     16     // 采样位数
-#define RECORD_TIME_SECONDS 3      // 最大录音时长（秒）- 减小以适应内存限制
-#define RECORD_BUFFER_SIZE  (I2S_SAMPLE_RATE * RECORD_TIME_SECONDS * 2) // 立体声 = 192KB
+#define I2S_SAMPLE_BITS     16     // 播放位数
+#define I2S_RX_SAMPLE_BITS  I2S_DATA_BIT_WIDTH_32BIT  // ZTS6672 需要 32 BCLK/slot，24-bit 数据左对齐在高位
+#define I2S_RX_SLOT_MODE    I2S_SLOT_MODE_STEREO       // 用立体声读两个声道，自动判断 SELECT 引脚
+#define RECORD_TIME_SECONDS 3      // 最大录音时长（秒）
+#define RECORD_BUFFER_SIZE  (I2S_SAMPLE_RATE * RECORD_TIME_SECONDS * 2) // 回放缓冲区使用立体声
+
 
 // The pixel number in horizontal and vertical
 #if CONFIG_EXAMPLE_LCD_CONTROLLER_ILI9341
@@ -329,21 +344,34 @@ static void init_i2s_tx(void)
     ESP_LOGI(TAG, "I2S TX initialized successfully");
 }
 
-// 初始化 I2S RX 用于 INMP441（录音）
+
+
+// 初始化 I2S RX 用于 ZTS6672（录音）
 static void init_i2s_rx(void)
 {
-    ESP_LOGI(TAG, "Initializing I2S RX for INMP441");
-    ESP_LOGW(TAG, "IMPORTANT: INMP441's L/R pin MUST be connected to GND or VCC!");
-    ESP_LOGW(TAG, "          L/R=GND -> Left channel, L/R=VCC -> Right channel");
+    ESP_LOGI(TAG, "Initializing I2S RX for ZTS6672 (ICS-43434 compatible)");
+    ESP_LOGW(TAG, "ZTS6672 requires: Philips format, 24-bit data, SELECT pin must be GND or VDD!");
+
+    // 检查数据线空闲电平
+    gpio_reset_pin(I2S_RX_SD_PIN);
+    gpio_set_direction(I2S_RX_SD_PIN, GPIO_MODE_INPUT);
+    gpio_reset_pin(I2S_RX_SCK_PIN);
+    gpio_set_direction(I2S_RX_SCK_PIN, GPIO_MODE_INPUT);
+    gpio_reset_pin(I2S_RX_WS_PIN);
+    gpio_set_direction(I2S_RX_WS_PIN, GPIO_MODE_INPUT);
+    ESP_LOGI(TAG, "GPIO idle levels: DIN(GPIO%d)=%d  BCLK(GPIO%d)=%d  WS(GPIO%d)=%d",
+             I2S_RX_SD_PIN, gpio_get_level(I2S_RX_SD_PIN),
+             I2S_RX_SCK_PIN, gpio_get_level(I2S_RX_SCK_PIN),
+             I2S_RX_WS_PIN, gpio_get_level(I2S_RX_WS_PIN));
     
     i2s_chan_config_t rx_chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
     ESP_ERROR_CHECK(i2s_new_channel(&rx_chan_cfg, NULL, &rx_handle));
-    
-    // INMP441 需要配置为 STEREO 模式，即使 L/R=GND 只使用左声道
-    // I2S 协议中，每个 WS 周期包含左右两个时隙
+
+    // ZTS6672/ICS-43434: Philips 格式, 24-bit, 立体声读取两个声道
+    i2s_std_clk_config_t clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(I2S_SAMPLE_RATE);
     i2s_std_config_t rx_std_cfg = {
-        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(I2S_SAMPLE_RATE),
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_SAMPLE_BITS, I2S_SLOT_MODE_STEREO),
+        .clk_cfg = clk_cfg,
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_RX_SAMPLE_BITS, I2S_RX_SLOT_MODE),
         .gpio_cfg = {
             .mclk = I2S_GPIO_UNUSED,
             .bclk = I2S_RX_SCK_PIN,
@@ -362,30 +390,56 @@ static void init_i2s_rx(void)
     ESP_ERROR_CHECK(i2s_channel_enable(rx_handle));
     
     // 验证 GPIO 配置
-    ESP_LOGI(TAG, "I2S RX GPIO Configuration:");
-    ESP_LOGI(TAG, "  BCLK (SCK): GPIO%d", I2S_RX_SCK_PIN);
-    ESP_LOGI(TAG, "  WS (LRCK):  GPIO%d", I2S_RX_WS_PIN);
-    ESP_LOGI(TAG, "  DIN (SD):   GPIO%d", I2S_RX_SD_PIN);
-    ESP_LOGI(TAG, "Hardware check: Please verify INMP441 connections match above GPIOs:");
-    ESP_LOGI(TAG, "  VDD  -> 3.3V");
-    ESP_LOGI(TAG, "  GND  -> GND");
-    ESP_LOGI(TAG, "  SCK  -> GPIO%d", I2S_RX_SCK_PIN);
-    ESP_LOGI(TAG, "  WS   -> GPIO%d", I2S_RX_WS_PIN);
-    ESP_LOGI(TAG, "  SD   -> GPIO%d", I2S_RX_SD_PIN);
-    ESP_LOGI(TAG, "  L/R  -> GND (for left channel)");
+    ESP_LOGI(TAG, "I2S RX: Philips / 24-bit / stereo / %d Hz / MCLK x384", I2S_SAMPLE_RATE);
+    ESP_LOGI(TAG, "  BCLK=GPIO%d  WS=GPIO%d  DIN=GPIO%d", I2S_RX_SCK_PIN, I2S_RX_WS_PIN, I2S_RX_SD_PIN);
+
+    // 硬件诊断：读一帧立体声数据，判断左右声道状态
+    {
+        int32_t diag_buf[64] = {0};
+        size_t diag_bytes = 0;
+        // 丢弃前几帧让麦克风稳定
+        for (int w = 0; w < 5; w++) {
+            i2s_channel_read(rx_handle, diag_buf, sizeof(diag_buf), &diag_bytes, 200);
+        }
+        i2s_channel_read(rx_handle, diag_buf, sizeof(diag_buf), &diag_bytes, 200);
+        // 立体声: 偶数=左声道, 奇数=右声道
+        ESP_LOGI(TAG, "Stereo diag: L[0]=0x%08lX R[0]=0x%08lX L[1]=0x%08lX R[1]=0x%08lX",
+                 (unsigned long)(uint32_t)diag_buf[0], (unsigned long)(uint32_t)diag_buf[1],
+                 (unsigned long)(uint32_t)diag_buf[2], (unsigned long)(uint32_t)diag_buf[3]);
+        int l_vary = 0, r_vary = 0, l_nonzero = 0, r_nonzero = 0;
+        for (int k = 0; k < 32; k++) {
+            if (diag_buf[k*2] != diag_buf[0]) l_vary++;
+            if (diag_buf[k*2+1] != diag_buf[1]) r_vary++;
+            if (diag_buf[k*2] != 0 && (uint32_t)diag_buf[k*2] != 0xFFFFFFFF) l_nonzero++;
+            if (diag_buf[k*2+1] != 0 && (uint32_t)diag_buf[k*2+1] != 0xFFFFFFFF) r_nonzero++;
+        }
+        ESP_LOGI(TAG, "Stereo diag: L_vary=%d L_valid=%d R_vary=%d R_valid=%d", l_vary, l_nonzero, r_vary, r_nonzero);
+        if (l_vary == 0 && r_vary == 0) {
+            ESP_LOGE(TAG, "HARDWARE FAULT: Both channels constant! DATA line stuck or mic not working.");
+            ESP_LOGE(TAG, "  -> Check: SELECT/LR pin connected? VDD=3.3V? GND shared? DATA soldered?");
+        } else if (l_vary > 0 && r_vary == 0) {
+            ESP_LOGI(TAG, "Audio on LEFT channel (SELECT=GND)");
+        } else if (l_vary == 0 && r_vary > 0) {
+            ESP_LOGI(TAG, "Audio on RIGHT channel (SELECT=VDD)");
+        } else {
+            ESP_LOGI(TAG, "Both channels varying - unusual for single mic");
+        }
+    }
     
     // 预热麦克风 - 读取并丢弃初始数据
-    ESP_LOGI(TAG, "Warming up INMP441...");
-    int16_t *warmup_buffer = malloc(4096 * sizeof(int16_t));
+    ESP_LOGI(TAG, "Warming up ZTS6672...");
+    int32_t *warmup_buffer = malloc(1024 * sizeof(int32_t));
     if (warmup_buffer) {
         size_t bytes_read = 0;
         int non_zero_count = 0;
         for (int i = 0; i < 10; i++) {
-            esp_err_t ret = i2s_channel_read(rx_handle, warmup_buffer, 4096 * sizeof(int16_t), &bytes_read, 200);
+            esp_err_t ret = i2s_channel_read(rx_handle, warmup_buffer, 1024 * sizeof(int32_t), &bytes_read, 200);
             if (ret == ESP_OK) {
                 // 检查是否有非零数据
-                for (int j = 0; j < 100; j++) {
-                    if (warmup_buffer[j] != 0) {
+                size_t sample_count = bytes_read / sizeof(int32_t);
+                size_t inspect_count = sample_count < 100 ? sample_count : 100;
+                for (size_t j = 0; j < inspect_count; j++) {
+                    if (zts6672_raw_to_pcm16(warmup_buffer[j]) != 0) {
                         non_zero_count++;
                     }
                 }
@@ -394,10 +448,10 @@ static void init_i2s_rx(void)
         }
         
         if (non_zero_count > 0) {
-            ESP_LOGI(TAG, "INMP441 warmup complete - detected %d non-zero samples", non_zero_count);
+            ESP_LOGI(TAG, "ZTS6672 warmup complete - detected %d non-zero samples", non_zero_count);
         } else {
-            ESP_LOGW(TAG, "INMP441 warmup complete - WARNING: All samples are ZERO!");
-            ESP_LOGW(TAG, "Possible issues: 1) L/R pin not connected, 2) VDD no power, 3) Wrong GPIO pins");
+            ESP_LOGW(TAG, "ZTS6672 warmup complete - WARNING: All converted samples are ZERO!");
+            ESP_LOGW(TAG, "Possible issues: 1) SELECT pin floating 2) DATA not soldered 3) VDD/GND unstable");
         }
         
         free(warmup_buffer);
@@ -589,7 +643,7 @@ static void start_recording(void *arg)
     bool first_read = true;  // 用于调试第一次读取
     
     size_t bytes_read = 0;
-    int16_t *temp_buffer = malloc(1024 * sizeof(int16_t));
+    int32_t *temp_buffer = malloc(512 * sizeof(int32_t));
     
     if (temp_buffer == NULL) {
         ESP_LOGE(TAG, "Failed to allocate temp buffer");
@@ -601,54 +655,40 @@ static void start_recording(void *arg)
     // 录音循环
     while (is_recording && recorded_samples < RECORD_BUFFER_SIZE) {
         // 从麦克风读取数据
-        esp_err_t ret = i2s_channel_read(rx_handle, temp_buffer, 1024 * sizeof(int16_t), &bytes_read, 100);
+        esp_err_t ret = i2s_channel_read(rx_handle, temp_buffer, 512 * sizeof(int32_t), &bytes_read, 100);
         
         if (ret == ESP_OK && bytes_read > 0) {
-            size_t samples_read = bytes_read / sizeof(int16_t);
+            size_t samples_read = bytes_read / sizeof(int32_t);
             
-            // 调试：打印第一次读取的样本值（立体声格式：偶数索引=左声道，奇数索引=右声道）
+            // 调试：打印第一次读取的样本值（立体声：偶数=L，奇数=R）
             if (first_read && samples_read >= 20) {
-                // 统计非零样本
-                int left_nonzero = 0, right_nonzero = 0;
-                int16_t left_min = 0, left_max = 0, right_min = 0, right_max = 0;
-                
-                for (size_t j = 0; j < samples_read; j += 2) {
-                    if (temp_buffer[j] != 0) {
-                        left_nonzero++;
-                        if (temp_buffer[j] < left_min) left_min = temp_buffer[j];
-                        if (temp_buffer[j] > left_max) left_max = temp_buffer[j];
-                    }
-                    if (j + 1 < samples_read && temp_buffer[j + 1] != 0) {
-                        right_nonzero++;
-                        if (temp_buffer[j + 1] < right_min) right_min = temp_buffer[j + 1];
-                        if (temp_buffer[j + 1] > right_max) right_max = temp_buffer[j + 1];
-                    }
+                ESP_LOGI(TAG, "First read: %d stereo samples (%d frames)", samples_read, samples_read / 2);
+                ESP_LOGI(TAG, "L-ch raw: 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX",
+                         (unsigned long)(uint32_t)temp_buffer[0], (unsigned long)(uint32_t)temp_buffer[2],
+                         (unsigned long)(uint32_t)temp_buffer[4], (unsigned long)(uint32_t)temp_buffer[6],
+                         (unsigned long)(uint32_t)temp_buffer[8]);
+                ESP_LOGI(TAG, "R-ch raw: 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX",
+                         (unsigned long)(uint32_t)temp_buffer[1], (unsigned long)(uint32_t)temp_buffer[3],
+                         (unsigned long)(uint32_t)temp_buffer[5], (unsigned long)(uint32_t)temp_buffer[7],
+                         (unsigned long)(uint32_t)temp_buffer[9]);
+                // 判断哪个声道有变化
+                int l_vary = 0, r_vary = 0;
+                for (size_t j = 2; j < samples_read && j < 40; j += 2) {
+                    if (temp_buffer[j] != temp_buffer[0]) l_vary++;
+                    if (temp_buffer[j+1] != temp_buffer[1]) r_vary++;
                 }
-                
-                ESP_LOGI(TAG, "First read: %d samples (stereo)", samples_read);
-                ESP_LOGI(TAG, "Left channel (L/R=GND):  %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
-                         temp_buffer[0], temp_buffer[2], temp_buffer[4], temp_buffer[6], temp_buffer[8],
-                         temp_buffer[10], temp_buffer[12], temp_buffer[14], temp_buffer[16], temp_buffer[18]);
-                ESP_LOGI(TAG, "Right channel (unused): %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
-                         temp_buffer[1], temp_buffer[3], temp_buffer[5], temp_buffer[7], temp_buffer[9],
-                         temp_buffer[11], temp_buffer[13], temp_buffer[15], temp_buffer[17], temp_buffer[19]);
-                ESP_LOGI(TAG, "Statistics: Left non-zero=%d (min=%d, max=%d), Right non-zero=%d (min=%d, max=%d)",
-                         left_nonzero, left_min, left_max, right_nonzero, right_min, right_max);
-                
-                if (left_nonzero == 0 && right_nonzero == 0) {
-                    ESP_LOGE(TAG, "ERROR: All samples are ZERO! INMP441 is not working!");
-                    ESP_LOGE(TAG, "Check: 1) VDD has 3.3V? 2) L/R connected to GND? 3) Correct GPIO pins?");
+                ESP_LOGI(TAG, "L-vary=%d R-vary=%d (of %d)", l_vary, r_vary, (int)(samples_read < 40 ? samples_read/2 : 20) - 1);
+                if (l_vary == 0 && r_vary == 0) {
+                    ESP_LOGE(TAG, "BOTH CHANNELS STUCK! Check: SELECT pin, DATA solder, VDD/GND");
                 }
-                
                 first_read = false;
             }
             
-            // INMP441 配置为 STEREO，L/R=GND 表示数据在左声道（偶数索引）
-            // 提取左声道数据并复制到立体声缓冲区用于播放
-            for (size_t i = 0; i < samples_read && recorded_samples < RECORD_BUFFER_SIZE - 1; i += 2) {
-                int16_t left_sample = temp_buffer[i];  // 只取左声道
-                record_buffer[recorded_samples++] = left_sample;  // 播放左声道
-                record_buffer[recorded_samples++] = left_sample;  // 播放右声道（复制相同数据）
+            // 立体声数据：提取右声道（奇数索引，SELECT=VDD），复制为双声道回放
+            for (size_t i = 1; i < samples_read && recorded_samples < RECORD_BUFFER_SIZE - 1; i += 2) {
+                int16_t left_sample = zts6672_raw_to_pcm16(temp_buffer[i]);
+                record_buffer[recorded_samples++] = left_sample;
+                record_buffer[recorded_samples++] = left_sample;
             }
         }
         
@@ -693,7 +733,7 @@ static void play_recording(void)
     
     // 计算录音时长（recorded_samples已经是立体声样本总数）
     float duration = recorded_samples / 2.0f / (float)I2S_SAMPLE_RATE;
-    ESP_LOGI(TAG, "Playing recording: %.2f seconds (%d stereo samples, %d mono samples)", 
+    ESP_LOGI(TAG, "Playing recording: %.2f seconds (%d stereo samples, %d source mono samples)", 
              duration, recorded_samples, recorded_samples / 2);
     
     size_t bytes_written = 0;
@@ -719,9 +759,16 @@ static void play_recording(void)
         offset += samples_to_write;
     }
     
-    // 发送静音
-    int16_t silence[512] = {0};
-    i2s_channel_write(tx_handle, silence, sizeof(silence), &bytes_written, portMAX_DELAY);
+    // 发送足够的静音来清空 DMA 缓冲区，防止循环播放残留数据
+    int16_t silence[1024] = {0};
+    for (int i = 0; i < 4; i++) {
+        i2s_channel_write(tx_handle, silence, sizeof(silence), &bytes_written, portMAX_DELAY);
+    }
+    
+    // 停止 TX 通道，防止 DMA 循环播放缓冲区残留
+    i2s_channel_disable(tx_handle);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    i2s_channel_enable(tx_handle);
     
     ESP_LOGI(TAG, "Playback finished");
 }
@@ -788,13 +835,11 @@ static void button_task(void *arg)
             play_recording();
         }
         
-        // GPIO39 嘀嗒声开关按钮 - 按下启用，松开禁用
+        // GPIO39 备用按钮（暂未使用）
         if (vol_down_pressed && !last_vol_down_state) {
-            tick_tock_enabled = true;
-            ESP_LOGI(TAG, "GPIO39 pressed - Tick-tock sound ENABLED");
+            ESP_LOGI(TAG, "GPIO39 pressed");
         } else if (!vol_down_pressed && last_vol_down_state) {
-            tick_tock_enabled = false;
-            ESP_LOGI(TAG, "GPIO39 released - Tick-tock sound DISABLED");
+            ESP_LOGI(TAG, "GPIO39 released");
         }
         
         // 定期打印状态（每5秒）
@@ -1017,9 +1062,73 @@ static const st77916_lcd_init_cmd_t lcd_init_cmds[] = {
     {0x29, (uint8_t[]){0x00}, 1, 0}
 };
 
+static void print_board_info(void)
+{
+    // 芯片信息
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    const char *chip_model = "Unknown";
+    switch (chip_info.model) {
+        case CHIP_ESP32:   chip_model = "ESP32";   break;
+        case CHIP_ESP32S2: chip_model = "ESP32-S2"; break;
+        case CHIP_ESP32S3: chip_model = "ESP32-S3"; break;
+        case CHIP_ESP32C3: chip_model = "ESP32-C3"; break;
+        case CHIP_ESP32H2: chip_model = "ESP32-H2"; break;
+        default: break;
+    }
+    ESP_LOGI(TAG, "========== 开发板信息 ==========");
+    ESP_LOGI(TAG, "芯片型号: %s (Rev %d.%d)", chip_model, chip_info.revision / 100, chip_info.revision % 100);
+    ESP_LOGI(TAG, "CPU 核心数: %d", chip_info.cores);
+    ESP_LOGI(TAG, "功能: WiFi%s%s",
+             (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+             (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+    ESP_LOGI(TAG, "PSRAM: %s", (chip_info.features & CHIP_FEATURE_EMB_PSRAM) ? "内置" : "外置/无");
+
+    // Flash 信息
+    uint32_t flash_size = 0;
+    if (esp_flash_get_size(NULL, &flash_size) == ESP_OK) {
+        ESP_LOGI(TAG, "Flash 大小: %lu MB", flash_size / (1024 * 1024));
+    }
+
+    // 内部 RAM
+    size_t internal_total = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+    size_t internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t internal_used = internal_total - internal_free;
+    float internal_pct = internal_total > 0 ? (float)internal_used / internal_total * 100.0f : 0;
+    ESP_LOGI(TAG, "内部 RAM: 总计 %u KB, 已用 %u KB, 空闲 %u KB (占用 %.1f%%)",
+             internal_total / 1024, internal_used / 1024, internal_free / 1024, internal_pct);
+
+    // PSRAM
+    size_t psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+    if (psram_total > 0) {
+        size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        size_t psram_used = psram_total - psram_free;
+        float psram_pct = (float)psram_used / psram_total * 100.0f;
+        ESP_LOGI(TAG, "PSRAM:    总计 %u KB, 已用 %u KB, 空闲 %u KB (占用 %.1f%%)",
+                 psram_total / 1024, psram_used / 1024, psram_free / 1024, psram_pct);
+    } else {
+        ESP_LOGI(TAG, "PSRAM:    未检测到");
+    }
+
+    // 所有可用堆内存汇总
+    size_t heap_total = heap_caps_get_total_size(MALLOC_CAP_8BIT);
+    size_t heap_free = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    size_t heap_used = heap_total - heap_free;
+    float heap_pct = heap_total > 0 ? (float)heap_used / heap_total * 100.0f : 0;
+    ESP_LOGI(TAG, "总堆内存: 总计 %u KB, 已用 %u KB, 空闲 %u KB (占用 %.1f%%)",
+             heap_total / 1024, heap_used / 1024, heap_free / 1024, heap_pct);
+
+    // 分区表中的应用分区占用
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    if (running) {
+        ESP_LOGI(TAG, "应用分区: %s, 大小 %lu KB", running->label, running->size / 1024);
+    }
+    ESP_LOGI(TAG, "================================");
+}
+
 void app_main(void)
 {
-    printf("Hello world!\n");
+    print_board_info();
 
     ESP_LOGI(TAG, "Configure LCD QSPI mode GPIOs");
     gpio_config_t lcd_mode_gpio_config = {
@@ -1062,7 +1171,7 @@ void app_main(void)
     // 初始化 I2S TX（MAX98357A 功放）
     init_i2s_tx();
     
-    // 初始化 I2S RX（INMP441 麦克风）
+    // 初始化 I2S RX（ZTS6672 麦克风）
     init_i2s_rx();
     
     // 启动按钮处理任务
@@ -1141,30 +1250,8 @@ void app_main(void)
     
     while (1)
     {
-        // 只有当GPIO39按下时才播放滴答声
-        if (tick_tock_enabled) {
-            // 每次交替播放滴答声
-            if (clock_tick % 2 == 0) {
-                play_tick_sound();  // 滴（高音）
-                ESP_LOGI(TAG, "Tick");
-            } else {
-                play_tock_sound();  // 答（低音）
-                ESP_LOGI(TAG, "Tock");
-            }
-            
-            // 等待100ms确保声音播放完毕
-            vTaskDelay(pdMS_TO_TICKS(100));
-            
-            clock_tick++;
-            
-            // 每6次（即6秒）切换一次颜色
-            if (clock_tick % 6 == 0) {
-                color_index = (color_index + 1) % 3;
-                lcd_fill_red(panel_handle, colors[color_index]);
-                ESP_LOGI(TAG, "Color changed to index %d", color_index);
-            }
-            
-            // 再等待1秒，形成舒缓的节奏（总共约1.1秒一次声音）
+        if (0) {
+            // 滴答声已禁用
             vTaskDelay(pdMS_TO_TICKS(1000));
         } else {
             // 未启用嘀嗒声时，只做轻量级延迟
