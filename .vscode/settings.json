@@ -4,5 +4,6 @@
     ],
     "idf.customExtraVars": {
         "IDF_TARGET": "esp32s3"
-    }
+    },
+    "idf.port": "/dev/tty.usbmodem5B910810541"
 }
